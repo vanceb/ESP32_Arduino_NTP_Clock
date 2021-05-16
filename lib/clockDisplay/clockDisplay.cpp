@@ -38,16 +38,18 @@ void display(void * parameters) {
     u8g2.setFont(u8g2_font_inr30_mn);
     u8g2.drawStr(0,32, "WiFi!");
     u8g2.sendBuffer();
+
     // Light LED Ring
+    FastLED.setBrightness(25);
     for(int i=0; i<NUM_LEDS; i++){
         led_ring[i] = CRGB::WhiteSmoke;
     }
     FastLED.show();
     delay(1000);
-    led_ring[0] = CRGB::Plum;
-    for(int i=1; i<NUM_LEDS; i++){
+    for(int i=0; i<NUM_LEDS; i++) {
         led_ring[i] = CRGB::Black;
     }
+    led_ring[0] = CRGB::Purple;
     FastLED.show();
 
     while(WiFi.status() != WL_CONNECTED) {
@@ -60,34 +62,36 @@ void display(void * parameters) {
         FastLED.show();
     }
 
-    int lastMinute = 0;
+    int lastMinute = -1;
     for(;;) {
         // Get the fixed time for this loop to stop overruns
         time_t t = now();
     
         // Display time on the OLED if it has changed
         if (lastMinute != minute(t)) {
+            lastMinute = minute(t);
             u8g2.clearBuffer();					// clear the internal memory
             u8g2.setFont(u8g2_font_inr30_mn);	// choose a suitable font
             u8g2.drawStr(0,32,getEpochStringByParams(UK.toLocal(t), "%H:%M").c_str());
-            lastMinute = minute(t);
             u8g2.sendBuffer();
         }
+
         // Clear the ring
-        for(int i=0; i<NUM_LEDS; i++){
+        for(int i=0; i<NUM_LEDS; i++) {
             led_ring[i] = CRGB::Black;
         }
         // Set the seconds
-        int bright = 5;
+        int bright = 255;
         int sec = second(t);
         int led = sec / 5;
-        int diff = abs(sec - (5 * led)) + 1;
         if((sec % 5) > 2) {
             led = (led + 1) % NUM_LEDS;
         }
-        bright = bright / diff;
+        int diff = sec - (5 * led);
+        if(diff != 0) {
+            bright = bright / (abs(diff) + 1);
+        }
         led_ring[led] = CRGB(0,bright,0);
-        Serial.print(bright);
         // Update led ring
         FastLED.show();
         
