@@ -10,6 +10,39 @@
 
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ OLED_CLK, /* data=*/ OLED_DATA, /* reset=*/ U8X8_PIN_NONE);   // ESP32 Thing, pure SW emulated I2C
 
+int clear(CRGB *leds, uint16_t num, CRGB colour) {
+    for(int i=0; i<num; i++) {
+        leds[i] = colour; 
+    }
+}
+
+/*************************************************
+ * show60 - light single led using input from 0 to 59
+ * Only a single LED is lit, the brightness based on
+ * how close the value is to the led position
+ * so 1 o'clock led lights brightest for 5, lower for 4 and 6
+ * lowest for 3 and 7
+ *************************************************/
+int show60(CRGB *leds, uint8_t num, CRGB colour) {
+    int bright = 255;
+    int led = num / 5;
+    if((num % 5) > 2) {
+        led += 1;
+    }
+    int diff = num - (5 * led);
+    led %= NUM_LEDS;
+    if(diff != 0) {
+        colour /= (abs(diff) + 1);
+    }
+    leds[led] += colour;
+}
+
+int showTime(CRGB *leds, time_t t) {
+    show60(leds, (hour(t) * 5) + (minute(t) / 5), CRGB::Red);
+    show60(leds, minute(t), CRGB::Blue);
+    show60(leds, second(t), CRGB::Green); 
+}
+
 void display(void * parameters) {
 
     // Calculate the delay needed to meet the refresh rate (approx)
@@ -87,27 +120,14 @@ void display(void * parameters) {
         }
 
         // Clear the ring
-        for(int i=0; i<NUM_LEDS; i++) {
-            led_ring[i] = CRGB::Black;
-        }
+        clear(led_ring, NUM_LEDS, CRGB::Black);
         // Set the seconds
-        int bright = 255;
-        int sec = second(t);
-        int led = sec / 5;
-        if((sec % 5) > 2) {
-            led += 1;
-        }
-        int diff = sec - (5 * led);
-        led %= NUM_LEDS;
-        if(diff != 0) {
-            bright = bright / (abs(diff) + 1);
-        }
-        led_ring[led] = CRGB(0,bright,0);
+        showTime(led_ring, t);
         // Update led ring
         FastLED.show();
         
         // Account for loop processing time
-        // Software I2C for OLED is limiting frame rate...
+        // Software I2C for OLED slow
         if(millis() < refresh) {
             delay(refresh - millis());
         }
