@@ -64,10 +64,20 @@ void display(void * parameters) {
 
     int lastMinute = -1;
     for(;;) {
-        // Get the fixed time for this loop to stop overruns
+        // Manage loop delay, looking out for overruns
+        // Works with the delay at the bottom of this loop
+        unsigned long m = millis();
+        unsigned long refresh = m + d;
+        if(refresh < m) {
+            // we have overrun the long counter
+            refresh = d;
+        }
+
+        // Get the fixed time for this loop
         time_t t = now();
     
-        // Display time on the OLED if it has changed
+        // Display time on the OLED
+        // Software I2C is slow so only update if changed
         if (lastMinute != minute(t)) {
             lastMinute = minute(t);
             u8g2.clearBuffer();					// clear the internal memory
@@ -85,9 +95,10 @@ void display(void * parameters) {
         int sec = second(t);
         int led = sec / 5;
         if((sec % 5) > 2) {
-            led = (led + 1) % NUM_LEDS;
+            led += 1;
         }
         int diff = sec - (5 * led);
+        led %= NUM_LEDS;
         if(diff != 0) {
             bright = bright / (abs(diff) + 1);
         }
@@ -95,8 +106,10 @@ void display(void * parameters) {
         // Update led ring
         FastLED.show();
         
-        // Put minimal delay just to allow other processes time
+        // Account for loop processing time
         // Software I2C for OLED is limiting frame rate...
-        delay(d);
+        if(millis() < refresh) {
+            delay(refresh - millis());
+        }
     }
 }
