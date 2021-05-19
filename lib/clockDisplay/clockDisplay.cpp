@@ -8,7 +8,10 @@
 #include <math.h>
 #include <TimeLib.h>
 
+// SW I2C is slow, but works
 U8G2_SSD1306_128X64_NONAME_F_SW_I2C u8g2(U8G2_R0, /* clock=*/ OLED_CLK, /* data=*/ OLED_DATA, /* reset=*/ U8X8_PIN_NONE);   // ESP32 Thing, pure SW emulated I2C
+// HW I2C doesn't work!
+//U8G2_SSD1306_128X64_NONAME_F_HW_I2C u8g2(U8G2_R0, /* clock=*/ OLED_CLK, /* data=*/ OLED_DATA, /* reset=*/ U8X8_PIN_NONE);   // ESP32 Thing, pure SW emulated I2C
 
 int clear(CRGB *leds, uint16_t num, CRGB colour) {
     for(int i=0; i<num; i++) {
@@ -24,7 +27,6 @@ int clear(CRGB *leds, uint16_t num, CRGB colour) {
  * lowest for 3 and 7
  *************************************************/
 int show60(CRGB *leds, uint8_t num, CRGB colour) {
-    int bright = 255;
     int led = num / 5;
     if((num % 5) > 2) {
         led += 1;
@@ -72,33 +74,32 @@ void display(void * parameters) {
     Serial.print("r: ");
     Serial.println(r);
 
+    // Initialise the OLED display
+    u8g2.begin();
+
     // Sanity delay (Suggested by FastLED to stop LED driving interfering with uploads)
     delay(2000);
 
     // Set up the LED ring
     CRGB led_ring[NUM_LEDS];
     FastLED.addLeds<WS2812, DATA_PIN, GRB>(led_ring, NUM_LEDS);
-
-    // Initialise the OLED display
-    u8g2.begin();
+    FastLED.setCorrection(TypicalLEDStrip);
 
     // Show Wifi not connected
     // Output notification to OLED
     u8g2.clearBuffer();
+    u8g2.sendBuffer();
     u8g2.setFont(u8g2_font_inr30_mn);
     u8g2.drawStr(0,32, "WiFi!");
     u8g2.sendBuffer();
 
     // Light LED Ring
     FastLED.setBrightness(25);
-    for(int i=0; i<NUM_LEDS; i++){
-        led_ring[i] = CRGB::WhiteSmoke;
-    }
+    clear(led_ring, NUM_LEDS, CRGB::WhiteSmoke);
     FastLED.show();
     delay(1000);
-    for(int i=0; i<NUM_LEDS; i++) {
-        led_ring[i] = CRGB::Black;
-    }
+    clear(led_ring, NUM_LEDS, CRGB::Black);
+
     led_ring[0] = CRGB::Purple;
     FastLED.show();
 
@@ -138,7 +139,7 @@ void display(void * parameters) {
 
         // Clear the ring
         clear(led_ring, NUM_LEDS, CRGB::Black);
-        // Set the seconds
+        // Show the time
         showTime(led_ring, t);
         // Update led ring
         FastLED.show();
