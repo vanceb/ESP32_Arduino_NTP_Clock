@@ -37,10 +37,27 @@ int show60(CRGB *leds, uint8_t num, CRGB colour) {
     leds[led] += colour;
 }
 
+int slide60(CRGB *leds, uint8_t num, CRGB colour) {
+    int led = num / 5;
+    int next_led = (led + 1) % NUM_LEDS;
+    int remainder = num % 5;
+    if(remainder == 0) {
+        leds[led] += colour;
+    } else {
+        leds[led] += (colour / 5) * (5 - remainder);
+        leds[next_led] += (colour / 5) * remainder;
+    }
+}
+
 int showTime(CRGB *leds, time_t t) {
+    /*
     show60(leds, (hour(t) * 5) + (minute(t) / 5), CRGB::Red);
     show60(leds, minute(t), CRGB::Blue);
     show60(leds, second(t), CRGB::Green); 
+    */
+    slide60(leds, ((hour(t) % 12) * 5) + (minute(t) / 12), CRGB::Red);
+    slide60(leds, minute(t), CRGB::Blue);
+    slide60(leds, second(t), CRGB::Green); 
 }
 
 void display(void * parameters) {
@@ -107,7 +124,7 @@ void display(void * parameters) {
         }
 
         // Get the fixed time for this loop
-        time_t t = now();
+        time_t t = UK.toLocal(now());
     
         // Display time on the OLED
         // Software I2C is slow so only update if changed
@@ -115,7 +132,7 @@ void display(void * parameters) {
             lastMinute = minute(t);
             u8g2.clearBuffer();					// clear the internal memory
             u8g2.setFont(u8g2_font_inr30_mn);	// choose a suitable font
-            u8g2.drawStr(0,32,getEpochStringByParams(UK.toLocal(t), "%H:%M").c_str());
+            u8g2.drawStr(0,32,getEpochStringByParams(t, "%H:%M").c_str());
             u8g2.sendBuffer();
         }
 
