@@ -9,7 +9,8 @@
 #include <Wire.h>
 
 #include <keeptime.h>
-#include <clockDisplay.h>
+//#include <clockDisplay.h>
+#include <SevenSeg.h>
 
 // Uncomment to output the amount of spare task stack
 //#define PRINT_SPARE_STACK
@@ -28,7 +29,7 @@ void setup()
   xTaskCreate(
     display,
     "Display_Task",
-    1500,
+    2500,
     NULL,
     0,
     &display_task
