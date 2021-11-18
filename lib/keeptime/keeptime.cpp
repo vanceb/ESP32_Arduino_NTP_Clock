@@ -38,7 +38,7 @@ void keeptime(void * parameter) {
             Serial.println(" Time updated from ntp");
         }
         //Infinite loop - designed to run as an RTOS task
-        Serial.print("*");
+        Serial.print("n");
         delay(1000);
     }
 }

@@ -29,7 +29,7 @@ void setup()
   xTaskCreate(
     display,
     "Display_Task",
-    2500,
+    3000,
     NULL,
     0,
     &display_task
@@ -65,11 +65,11 @@ void setup()
 void loop()
 {
   delay(1000);
-  Serial.print("-");
+  Serial.print("l");
   #ifdef PRINT_SPARE_STACK
   Serial.print("ntp spare stack: ");
   Serial.println(uxTaskGetStackHighWaterMark(ntp_task));
-  Serial.print("oled spare stack: ");
+  Serial.print("display spare stack: ");
   Serial.println(uxTaskGetStackHighWaterMark(display_task));
   #endif
 
@@ -80,7 +80,7 @@ void loop()
   }
   spare = uxTaskGetStackHighWaterMark(display_task);
   if(spare < 100) {
-    Serial.print("oled_task low stack space: ");
+    Serial.print("display_task low stack space: ");
     Serial.println(spare);
   }
 }

@@ -70,7 +70,7 @@ const static byte charTable [] PROGMEM  = {
     B01100111,B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,
     B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,B00001000,
     B00000000,B01110111,B00011111,B00001101,B00111101,B01001111,B01000111,B00000000,
-    B00110111,B00000000,B00000000,B00000000,B00001110,B00000000,B00010101,B00011101,
+    B00110111,B00000100,B00000000,B00000000,B00001110,B00000000,B00010101,B00011101,
     B01100111,B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,
     B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,B00000000,B00000000
 };
@@ -174,6 +174,13 @@ class SevenSeg {
          */
         uint16_t   exor(uint16_t addr, byte v);
 
+        /* Best Effort output string to display buffer 
+         *
+         * addr = Index of start position
+         * msg  = char* containing the string to be output
+         */
+        uint16_t   print(char* msg, uint16_t addr);
+
         /* Update the display
          *
          * Transfer the live display buffer data to the drivers using SPI
@@ -218,16 +225,17 @@ class DigitalClock {
 };
 
 
-#include <uptime.h>
-
 class TimeUp {
     private:
-    static const uint8_t length = 13;
+        static const uint8_t length = 13;
         uint16_t position;
+
     public:
         TimeUp(SevenSeg display, uint16_t pos=0);
         uint8_t update(SevenSeg display);
 };
+
+
 
 
 /* General */

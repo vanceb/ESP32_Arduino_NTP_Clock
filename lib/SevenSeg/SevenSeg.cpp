@@ -1,9 +1,13 @@
 #include <SevenSeg.h>
 #include <keeptime.h>
+#include <TideTimes.h>
+
 #include <WiFi.h>
 #include <stdio.h>
 
 //#include <FastLED.h>
+
+//#define PRINT_SPARE_STACK
 
 //the opcodes for the MAX7221 and MAX7219
 #define OP_NOOP   0
@@ -196,6 +200,23 @@ uint16_t SevenSeg::exor(uint16_t addr, byte v) {
     return addr;
 }
 
+uint16_t SevenSeg::print(char* msg, uint16_t addr) {
+    uint16_t cursor = addr;
+    /* Write to the display buffer */
+    for(int i=0; i<strlen(msg); i++) {
+        if (cursor < 0 || cursor > length()) {
+            return cursor;
+        }
+        if (msg[i] == '.' || msg[i] == ':') {
+            --cursor;
+            overlay(cursor, 0x80);
+        } else {
+            set(cursor, charTable[msg[i]]);
+        }
+        ++cursor;
+    }
+}
+
 uint16_t SevenSeg::length() {
     return numDigits;
 }
@@ -270,18 +291,16 @@ uint8_t DigitalClock::update(SevenSeg display, time_t t) {
             break;
     }          
     /* Write time to display buffer */
-    for (int i=0; i< strlen(charTime); i++) {
-        display.set(position + i, charTable[charTime[i]]);
-    }
+    display.print(charTime, position);
 
     /* Flash the decimal point */
     if (second(t) % 2 == 0) {
-        display.overlay(position + 1, 0x80);  // after the hours
+        display.exor(position + 1, 0x80);  // after the hours
         if (secondsMode == SM_DIGITAL) {
             if (extraSpaces) {
-                display.overlay(position + 4, 0x80);
+                display.exor(position + 4, 0x80);
             } else {
-                display.overlay(position + 3, 0x80);
+                display.exor(position + 3, 0x80);
             }
         }
     }
@@ -294,23 +313,23 @@ uint8_t DigitalClock::update(SevenSeg display, time_t t) {
         case SM_BORDER:
             uint8_t sec = second(t);
             if (sec == 0) {
-                display.overlay(13, 0x40);
+                display.exor(13, 0x40);
             } else if (sec > 0 && sec <= 14) {
-                display.overlay(17 + sec, 0x40);
+                display.exor(17 + sec, 0x40);
             } else if(sec==15) {
-                display.overlay(31, 0x20);
+                display.exor(31, 0x20);
             } else if(sec==16) {
-                display.overlay(31, 0x10);
+                display.exor(31, 0x10);
             } else if(sec>16 && sec <=30) {
-                display.overlay(31-(sec-17), 0x08);
+                display.exor(31-(sec-17), 0x08);
             } else if(sec>30 && sec<=44) {
-                display.overlay(13-(sec-31), 0x08);
+                display.exor(13-(sec-31), 0x08);
             } else if(sec==45) {
-                display.overlay(0, 0x04);
+                display.exor(0, 0x04);
             } else if(sec==46) {
-                display.overlay(0, 0x02);
+                display.exor(0, 0x02);
             } else {
-                display.overlay(sec - 47, 0x40);
+                display.exor(sec - 47, 0x40);
             }
     }
 }
@@ -326,11 +345,8 @@ TimeUp::TimeUp(SevenSeg display, uint16_t pos) {
 
 uint8_t TimeUp::update(SevenSeg display) {
     uptime::calculateUptime();
-    if (position + length > display.length()) {
-        return 0;
-    }
-    char charUptime[length+1];
-    snprintf(charUptime, length+1, "%03d %02d %02d %02d%01d", 
+    char charUptime[16];
+    snprintf(charUptime, 15, "%03d %02d %02d %02d.%d", 
             uptime::getDays(),
             uptime::getHours(),
             uptime::getMinutes(),
@@ -338,14 +354,11 @@ uint8_t TimeUp::update(SevenSeg display) {
             uptime::getMilliseconds()
     );
     /* Write to the display */
-    for(int i=0; i<strlen(charUptime); i++) {
-        display.set(position+i, charTable[charUptime[i]]);
-    }
-    /* Add the decimal point */
-    display.overlay(position+11, 0x80);
+    display.print(charUptime, 0);
     return 1;
 }
 
+/* FreeRTOS Task for updating the display */
 void display(void * parameters) {
 
     // Calculate the delay needed to meet the refresh rate (approx)
@@ -391,6 +404,18 @@ void display(void * parameters) {
 //    TimeUp timeup = TimeUp(disp, 19);
     TimeUp timeup = TimeUp(disp, 0);
 
+    /* Create a Tides object and a task to keep it updated */
+    Tides tides = Tides("0025", 2);
+    TaskHandle_t tides_update_task;
+    xTaskCreate(
+                tidesTask,
+                "Tides Update Task",
+                5500,
+                &tides,
+                0,
+                &tides_update_task
+    );
+
     int lastMinute = -1;
     for(;;) {
         // Manage loop delay, looking out for overruns
@@ -419,6 +444,9 @@ void display(void * parameters) {
 
         /* Display a test pattern on the 7-Seg Display */
         disp.clearBuffer();
+        /* Update tide data display */
+        tides.update_display(disp, 20, tides.next_tide());
+
 //        bullet.update(disp);        
         timeup.update(disp);
         digiclk.update(disp, t);
@@ -430,7 +458,12 @@ void display(void * parameters) {
             delay(refresh - millis());
         }
 
+        #ifdef PRINT_SPARE_STACK
+        Serial.print("Tides update spare stack: ");
+        Serial.println(uxTaskGetStackHighWaterMark(tides_update_task));
+        #endif
+
         /* Ouput loop processing marker for debugging */
-        Serial.print("+");
+        Serial.print("d");
     }
 }
